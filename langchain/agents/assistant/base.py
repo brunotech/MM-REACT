@@ -82,15 +82,11 @@ class AssistantAgent(Agent):
             if not l:
                 continue
             new_lines.append(l)
-        text = "\n".join(new_lines)
-
-        return text
+        return "\n".join(new_lines)
     
     def _fix_text(self, text: str) -> str:
         text = self._fix_chatgpt(text)
-        if "Assistant, " in text:
-            return text
-        return f"{text}\n{self.llm_prefix}"
+        return text if "Assistant, " in text else f"{text}\n{self.llm_prefix}"
 
     def _extract_tool_and_input(self, llm_output: str, tries=0) -> Optional[Tuple[str, str]]:
         # TODO: this should be a separate llm as a tool to decide the correct tool(s) here
@@ -119,10 +115,7 @@ class AssistantAgent(Agent):
             elif "business card" in sub_cmd:
                 action = "Business Card Understanding"
             elif "ocr" in sub_cmd:
-                if is_table:
-                    action = "Layout Understanding"
-                else:
-                    action = "OCR Understanding"
+                action = "Layout Understanding" if is_table else "OCR Understanding"
             elif "celebrit" in sub_cmd:
                 action = "Celebrity Understanding"
             elif "landmark" in sub_cmd:
@@ -152,10 +145,9 @@ class AssistantAgent(Agent):
                 return self.finish_tool_name, llm_output
             return action, action_input
         action_log = llm_output.strip()
-        if tries < 4:
-            if "do not have that information" in llm_output:
-                # Let the model rethink
-                return
+        if tries < 4 and "do not have that information" in llm_output:
+            # Let the model rethink
+            return
         return self.finish_tool_name, action_log
 
     @classmethod

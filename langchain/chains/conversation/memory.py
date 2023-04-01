@@ -117,10 +117,11 @@ class ConversationBufferMemory(Memory, BaseModel):
         new_input = inputs[prompt_input_key]
         human = self.human_prefix + new_input
         ai_output = outputs[output_key]
-        if not ai_output.strip():
-            ai = "\n<|im_end|>"
-        else:
-            ai = self.ai_prefix + ai_output + "\n<|im_end|>"
+        ai = (
+            self.ai_prefix + ai_output + "\n<|im_end|>"
+            if ai_output.strip()
+            else "\n<|im_end|>"
+        )
         assistant = ""
         intermediate = outputs.get(self.output_intermediate) or []
         for action, action_output in intermediate:
@@ -171,8 +172,8 @@ class ConversationBufferWindowMemory(Memory, BaseModel):
             output_key = list(outputs.keys())[0]
         else:
             output_key = self.output_key
-        human = f"{self.human_prefix}: " + inputs[prompt_input_key]
-        ai = f"{self.ai_prefix}: " + outputs[output_key]
+        human = f"{self.human_prefix}: {inputs[prompt_input_key]}"
+        ai = f"{self.ai_prefix}: {outputs[output_key]}"
         self.buffer.append("\n".join([human, ai]))
 
     def clear(self) -> None:
@@ -284,9 +285,7 @@ class ConversationEntityMemory(Memory, BaseModel):
             entities = []
         else:
             entities = [w.strip() for w in output.split(",")]
-        entity_summaries = {}
-        for entity in entities:
-            entity_summaries[entity] = self.store.get(entity, "")
+        entity_summaries = {entity: self.store.get(entity, "") for entity in entities}
         self.entity_cache = entities
         return {
             self.chat_history_key: "\n".join(self.buffer[-self.k :]),
@@ -305,8 +304,8 @@ class ConversationEntityMemory(Memory, BaseModel):
             output_key = list(outputs.keys())[0]
         else:
             output_key = self.output_key
-        human = f"{self.human_prefix}: " + inputs[prompt_input_key]
-        ai = f"{self.ai_prefix}: " + outputs[output_key]
+        human = f"{self.human_prefix}: {inputs[prompt_input_key]}"
+        ai = f"{self.ai_prefix}: {outputs[output_key]}"
         for entity in self.entity_cache:
             chain = LLMChain(llm=self.llm, prompt=self.entity_summarization_prompt)
             # key value store for entity
@@ -433,8 +432,7 @@ class ConversationKGMemory(Memory, BaseModel):
         entities = self._get_current_entities(inputs)
         summaries = {}
         for entity in entities:
-            knowledge = self.kg.get_entity_knowledge(entity)
-            if knowledge:
+            if knowledge := self.kg.get_entity_knowledge(entity):
                 summaries[entity] = ". ".join(knowledge) + "."
         if summaries:
             summary_strings = [
